@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/card_container.dart';
-import '../../../shared/widgets/custom_button.dart';
-import '../../../shared/widgets/custom_text_field.dart';
 import '../state/admin_controllers.dart';
 
 class AdminPricesScreen extends ConsumerStatefulWidget {
@@ -50,10 +47,11 @@ class _AdminPricesScreenState extends ConsumerState<AdminPricesScreen> {
 
     if (mounted) {
       ref.invalidate(priceHistoryProvider);
+      ref.invalidate(adminDashboardProvider);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(success ? 'Meal prices updated successfully!' : 'Failed to update prices.'),
-          backgroundColor: success ? AppColors.primary : AppColors.danger,
+          backgroundColor: success ? AppColors.primaryDark : AppColors.danger,
         ),
       );
     }
@@ -66,20 +64,8 @@ class _AdminPricesScreenState extends ConsumerState<AdminPricesScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Meal Price Management'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () {
-              ref.read(adminPricesProvider.notifier).loadPrices();
-              ref.invalidate(priceHistoryProvider);
-            },
-          ),
-        ],
-      ),
       body: pricesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primaryDark)),
         error: (err, _) => Center(child: Text('Error loading prices: $err')),
         data: (prices) {
           if (_bPriceController.text.isEmpty) {
@@ -89,65 +75,89 @@ class _AdminPricesScreenState extends ConsumerState<AdminPricesScreen> {
           }
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.symmetric(horizontal: 22.0, vertical: 20.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Price Update Form
+                // Top Header matching Reference 2 (Image 11)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Meal Prices',
+                          style: AppTypography.displayMedium.copyWith(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primaryDark,
+                          ),
+                        ),
+                        Text(
+                          'Configure operational rates and audit price revisions',
+                          style: AppTypography.bodyMedium.copyWith(fontSize: 12, color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryDark,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                      ),
+                      onPressed: _isSaving ? null : _handleSave,
+                      icon: _isSaving
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.check_rounded, size: 16),
+                      label: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 20),
+
+                // Current Prices Card
                 CardContainer(
-                  padding: const EdgeInsets.all(18),
+                  padding: const EdgeInsets.all(20),
+                  borderRadius: 20,
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.currency_rupee_rounded, color: AppColors.primary, size: 22),
-                          const SizedBox(width: 8),
-                          Text('Configure Active Rates (INR)', style: AppTypography.titleLarge.copyWith(fontSize: 16)),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
                       Text(
-                        'Changes take effect immediately for future consumption. Existing recorded charges will retain their frozen historical price snapshots.',
-                        style: AppTypography.bodyMedium.copyWith(fontSize: 12),
+                        'Current Meal Rates',
+                        style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.w800, fontSize: 16),
                       ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: CustomTextField(
-                              label: 'Breakfast (₹)',
-                              hint: '40',
-                              controller: _bPriceController,
-                              keyboardType: TextInputType.number,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: CustomTextField(
-                              label: 'Lunch (₹)',
-                              hint: '80',
-                              controller: _lPriceController,
-                              keyboardType: TextInputType.number,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: CustomTextField(
-                              label: 'Dinner (₹)',
-                              hint: '70',
-                              controller: _dPriceController,
-                              keyboardType: TextInputType.number,
-                            ),
-                          ),
-                        ],
+                      const SizedBox(height: 4),
+                      Text(
+                        'Updates will apply to all subsequent bookings and consumption calculations.',
+                        style: AppTypography.bodyMedium.copyWith(fontSize: 12, color: AppColors.textSecondary),
                       ),
-                      const SizedBox(height: 22),
-                      CustomButton(
-                        text: 'Update Active Prices',
-                        isLoading: _isSaving,
-                        onPressed: _handleSave,
-                        height: 48,
+                      const SizedBox(height: 18),
+
+                      _buildPriceRow(
+                        label: 'Breakfast Rate',
+                        icon: Icons.wb_sunny_rounded,
+                        color: AppColors.breakfast,
+                        bg: AppColors.breakfastBg,
+                        controller: _bPriceController,
+                      ),
+                      const Divider(height: 22, color: AppColors.cardBorder),
+                      _buildPriceRow(
+                        label: 'Lunch Rate',
+                        icon: Icons.lunch_dining_rounded,
+                        color: AppColors.lunch,
+                        bg: AppColors.lunchBg,
+                        controller: _lPriceController,
+                      ),
+                      const Divider(height: 22, color: AppColors.cardBorder),
+                      _buildPriceRow(
+                        label: 'Dinner Rate',
+                        icon: Icons.nightlight_round,
+                        color: AppColors.dinner,
+                        bg: AppColors.dinnerBg,
+                        controller: _dPriceController,
                       ),
                     ],
                   ),
@@ -155,74 +165,129 @@ class _AdminPricesScreenState extends ConsumerState<AdminPricesScreen> {
 
                 const SizedBox(height: 24),
 
-                // Price Audit History Table
-                Text('Price Change Audit Trail', style: AppTypography.titleLarge),
-                const SizedBox(height: 10),
+                // Price History Audit Trail matching Reference 2 (Image 11)
+                Text(
+                  'Price History & Audit Trail',
+                  style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.w800, fontSize: 18),
+                ),
+                const SizedBox(height: 12),
 
                 historyAsync.when(
-                  loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
-                  error: (err, _) => Text('Could not load history: $err'),
+                  loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primaryDark)),
+                  error: (e, _) => Text('Could not load price history: $e'),
                   data: (history) {
                     if (history.isEmpty) {
                       return CardContainer(
                         padding: const EdgeInsets.all(20),
                         child: Center(
                           child: Text(
-                            'No price changes recorded yet. Initial rates active.',
-                            style: AppTypography.bodyMedium.copyWith(fontStyle: FontStyle.italic),
+                            'No price modification logs found.',
+                            style: AppTypography.bodyMedium,
                           ),
                         ),
                       );
                     }
-
                     return CardContainer(
-                      padding: EdgeInsets.zero,
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: history.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.cardBorder),
-                        itemBuilder: (context, idx) {
-                          final h = history[idx];
-                          DateTime dt;
-                          try {
-                            dt = DateTime.parse(h.changedAt);
-                          } catch (_) {
-                            dt = DateTime.now();
-                          }
-                          final dateStr = DateFormat('d MMM yyyy, h:mm a').format(dt);
-
-                          return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                            leading: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppColors.primarySubtle,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.history_rounded, size: 18, color: AppColors.primary),
-                            ),
-                            title: Text(
-                              '${h.mealType}: ₹${h.oldPrice.toInt()} → ₹${h.newPrice.toInt()}',
-                              style: AppTypography.titleMedium.copyWith(fontSize: 14),
-                            ),
-                            subtitle: Text(
-                              'By ${h.changedByName ?? "Admin"} • $dateStr',
-                              style: AppTypography.bodyMedium.copyWith(fontSize: 12),
+                      padding: const EdgeInsets.all(16),
+                      borderRadius: 18,
+                      child: Column(
+                        children: history.map((item) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primarySubtle,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.history_rounded, size: 16, color: AppColors.primaryDark),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${item.mealType.toUpperCase()} updated from ₹${item.oldPrice.toInt()} to ₹${item.newPrice.toInt()}',
+                                        style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                                      ),
+                                      Text(
+                                        'Changed by Admin • ${item.changedAt.length > 10 ? item.changedAt.substring(0, 10) : item.changedAt}',
+                                        style: AppTypography.labelSmall.copyWith(color: AppColors.textMuted, fontSize: 10),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                           );
-                        },
+                        }).toList(),
                       ),
                     );
                   },
                 ),
-
-                const SizedBox(height: 20),
               ],
             ),
           );
         },
       ),
+    );
+  }
+
+  Widget _buildPriceRow({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required Color bg,
+    required TextEditingController controller,
+  }) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Text(
+            label,
+            style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+        ),
+        Container(
+          width: 110,
+          decoration: BoxDecoration(
+            color: AppColors.surfaceMuted,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.cardBorder),
+          ),
+          child: Row(
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(left: 10.0),
+                child: Text('₹', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primaryDark)),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
