@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../shared/widgets/custom_button.dart';
-import '../../../shared/widgets/custom_text_field.dart';
 import '../state/auth_controller.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -24,30 +22,30 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   void dispose() {
-    _nameController.dispose;
-    _emailController.dispose;
-    _roomController.dispose;
-    _phoneController.dispose;
-    _passwordController.dispose;
+    _nameController.dispose();
+    _emailController.dispose();
+    _roomController.dispose();
+    _phoneController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _handleRegister() async {
-    if (_nameController.text.isEmpty ||
-        _emailController.text.isEmpty ||
-        _passwordController.text.isEmpty) {
+    if (_nameController.text.trim().isEmpty ||
+        _emailController.text.trim().isEmpty ||
+        _passwordController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all mandatory fields')),
+        const SnackBar(content: Text('Please fill all mandatory fields (Name, Email, Password).')),
       );
       return;
     }
 
     final success = await ref.read(authProvider.notifier).register(
-          email: _emailController.text,
-          password: _passwordController.text,
-          fullName: _nameController.text,
-          roomNumber: _roomController.text,
-          phoneNumber: _phoneController.text,
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+          fullName: _nameController.text.trim(),
+          roomNumber: _roomController.text.trim(),
+          phoneNumber: _phoneController.text.trim(),
         );
 
     if (success && mounted) {
@@ -62,7 +60,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Student Registration'),
+        title: Text('Student Registration', style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.w800)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => context.pop(),
@@ -78,101 +76,158 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Join Heritage Hostel Dining',
-                    style: AppTypography.displayMedium,
+                    'Join Hostel Dining',
+                    style: AppTypography.displayMedium.copyWith(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primaryDark,
+                    ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Text(
-                    'Create your account to view menus and pre-book meals',
-                    style: AppTypography.bodyMedium,
+                    'Pre-book breakfast, lunch & dinner with verified hostel residency',
+                    style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
 
                   if (authState.errorMessage != null) ...[
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: AppColors.dangerSubtle,
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.danger.withOpacity(0.3)),
                       ),
                       child: Text(
                         authState.errorMessage!,
-                        style: AppTypography.bodyMedium.copyWith(color: AppColors.danger),
+                        style: AppTypography.bodyMedium.copyWith(color: AppColors.danger, fontSize: 12),
                       ),
                     ),
                     const SizedBox(height: 16),
                   ],
 
-                  CustomTextField(
-                    label: 'Full Name *',
-                    hint: 'e.g. Ramesh Kumar',
+                  // Full Name
+                  Text('Full Name *', style: AppTypography.labelSmall.copyWith(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                  const SizedBox(height: 6),
+                  TextField(
                     controller: _nameController,
-                    prefixIcon: Icons.person_outline_rounded,
+                    decoration: const InputDecoration(
+                      hintText: 'e.g. Arjun S Nair',
+                      prefixIcon: Icon(Icons.person_outline_rounded, size: 20, color: AppColors.textMuted),
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                  CustomTextField(
-                    label: 'Email Address *',
-                    hint: 'student@hostel.edu',
+                  const SizedBox(height: 14),
+
+                  // Email
+                  Text('College Email *', style: AppTypography.labelSmall.copyWith(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                  const SizedBox(height: 6),
+                  TextField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    prefixIcon: Icons.email_outlined,
+                    decoration: const InputDecoration(
+                      hintText: 'arjun@hostel.edu',
+                      prefixIcon: Icon(Icons.mail_outline_rounded, size: 20, color: AppColors.textMuted),
+                    ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
+
+                  // Room Number & Phone
                   Row(
                     children: [
                       Expanded(
-                        child: CustomTextField(
-                          label: 'Room Number',
-                          hint: 'e.g. A-204',
-                          controller: _roomController,
-                          prefixIcon: Icons.meeting_room_outlined,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Room Number', style: AppTypography.labelSmall.copyWith(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                            const SizedBox(height: 6),
+                            TextField(
+                              controller: _roomController,
+                              decoration: const InputDecoration(
+                                hintText: '302',
+                                prefixIcon: Icon(Icons.meeting_room_outlined, size: 20, color: AppColors.textMuted),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 14),
+                      const SizedBox(width: 12),
                       Expanded(
-                        child: CustomTextField(
-                          label: 'Phone Number',
-                          hint: '9876543210',
-                          controller: _phoneController,
-                          keyboardType: TextInputType.phone,
-                          prefixIcon: Icons.phone_outlined,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Phone Number', style: AppTypography.labelSmall.copyWith(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                            const SizedBox(height: 6),
+                            TextField(
+                              controller: _phoneController,
+                              keyboardType: TextInputType.phone,
+                              decoration: const InputDecoration(
+                                hintText: '+91 9876543210',
+                                prefixIcon: Icon(Icons.phone_outlined, size: 20, color: AppColors.textMuted),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  CustomTextField(
-                    label: 'Password *',
-                    hint: 'Minimum 6 characters',
+                  const SizedBox(height: 14),
+
+                  // Password
+                  Text('Password *', style: AppTypography.labelSmall.copyWith(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                  const SizedBox(height: 6),
+                  TextField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
-                    prefixIcon: Icons.lock_outline_rounded,
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                        color: AppColors.textMuted,
-                        size: 20,
+                    decoration: InputDecoration(
+                      hintText: 'At least 8 characters',
+                      prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20, color: AppColors.textMuted),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                          color: AppColors.textMuted,
+                          size: 20,
+                        ),
+                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                       ),
-                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Register Button
+                  SizedBox(
+                    height: 52,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryDark,
+                        foregroundColor: Colors.white,
+                        elevation: 1,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+                      ),
+                      onPressed: authState.isLoading ? null : _handleRegister,
+                      child: authState.isLoading
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Text('Create Student Account', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                     ),
                   ),
 
-                  const SizedBox(height: 28),
-                  CustomButton(
-                    text: 'Register Account',
-                    isLoading: authState.isLoading,
-                    onPressed: _handleRegister,
-                    height: 50,
-                  ),
-                  const SizedBox(height: 16),
-                  Center(
-                    child: TextButton(
-                      onPressed: () => context.pop(),
-                      child: Text(
-                        'Already have an account? Sign In',
-                        style: AppTypography.titleMedium.copyWith(color: AppColors.primary, fontSize: 14),
+                  const SizedBox(height: 18),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('Already registered? ', style: AppTypography.bodyMedium),
+                      GestureDetector(
+                        onTap: () => context.pop(),
+                        child: Text(
+                          'Sign In',
+                          style: AppTypography.titleMedium.copyWith(
+                            color: AppColors.primaryDark,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),
