@@ -4,9 +4,9 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/card_container.dart';
-import '../../../shared/widgets/stat_card.dart';
-import '../../../shared/widgets/status_badge.dart';
+import '../../../shared/widgets/food_image.dart';
 import '../state/admin_controllers.dart';
+import '../../student/models/menu_model.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
   final Function(int) onNavigateTab;
@@ -20,157 +20,204 @@ class AdminDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(adminDashboardProvider);
 
-    final todayFormatted = DateFormat('EEE, d MMMM yyyy').format(DateTime.now());
-    final tomorrowFormatted = DateFormat('EEE, d MMMM yyyy').format(DateTime.now().add(const Duration(days: 1)));
+    final todayFormatted = DateFormat('EEEE, d MMMM yyyy').format(DateTime.now());
+    final tomorrowFormatted = DateFormat('EEEE, d MMMM yyyy').format(DateTime.now().add(const Duration(days: 1)));
+
+    final totalTomorrowPortions = state.tomorrowBreakfastPortions + state.tomorrowLunchPortions + state.tomorrowDinnerPortions;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: RefreshIndicator(
         onRefresh: () => ref.read(adminDashboardProvider.notifier).loadDashboard(),
-        color: AppColors.primary,
+        color: AppColors.primaryDark,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 22.0, vertical: 20.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header
+              // Top Header with Greeting & Date
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Operations Dashboard', style: AppTypography.displayMedium.copyWith(fontSize: 22)),
-                      const SizedBox(height: 4),
-                      Text('Today: $todayFormatted', style: AppTypography.bodyMedium),
+                      Text(
+                        'Good evening,',
+                        style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary, fontSize: 13),
+                      ),
+                      Text(
+                        'Admin Dashboard',
+                        style: AppTypography.displayMedium.copyWith(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primaryDark,
+                        ),
+                      ),
                     ],
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.refresh_rounded, color: AppColors.primary),
-                    onPressed: () => ref.read(adminDashboardProvider.notifier).loadDashboard(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today_rounded, size: 14, color: AppColors.primaryDark),
+                        const SizedBox(width: 8),
+                        Text(
+                          todayFormatted,
+                          style: AppTypography.labelSmall.copyWith(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 18),
+              const SizedBox(height: 20),
 
-              // KPI Metric Cards Grid
+              // KPI 4-Card Overview
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final isWide = constraints.maxWidth > 600;
+                  final isWide = constraints.maxWidth >= 720;
                   return GridView.count(
                     crossAxisCount: isWide ? 4 : 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 14,
+                    mainAxisSpacing: 14,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    childAspectRatio: isWide ? 1.4 : 1.25,
+                    childAspectRatio: isWide ? 1.6 : 1.35,
                     children: [
-                      StatCard(
-                        title: 'REGISTERED STUDENTS',
+                      _buildKpiCard(
+                        title: 'Total Students',
                         value: '${state.totalStudents}',
-                        subtitle: 'Single Hostel Active',
+                        sub: 'Registered in hostel',
                         icon: Icons.people_alt_rounded,
-                        iconColor: AppColors.primary,
-                        onTap: () => onNavigateTab(3), // Students
+                        color: AppColors.primaryDark,
+                        bg: AppColors.primarySubtle,
+                        onTap: () => onNavigateTab(3),
                       ),
-                      StatCard(
-                        title: 'TOMORROW PORTIONS',
-                        value: '${state.tomorrowBreakfastPortions + state.tomorrowLunchPortions + state.tomorrowDinnerPortions}',
-                        subtitle: 'B:${state.tomorrowBreakfastPortions} L:${state.tomorrowLunchPortions} D:${state.tomorrowDinnerPortions}',
-                        icon: Icons.soup_kitchen_rounded,
-                        iconColor: AppColors.accent,
-                        onTap: () => onNavigateTab(6), // Kitchen Reports
+                      _buildKpiCard(
+                        title: 'Breakfast Booked',
+                        value: '${state.tomorrowBreakfastPortions}',
+                        sub: 'of ${state.totalStudents} students',
+                        icon: Icons.wb_sunny_rounded,
+                        color: AppColors.breakfast,
+                        bg: AppColors.breakfastBg,
+                        onTap: () => onNavigateTab(4),
                       ),
-                      StatCard(
-                        title: "TODAY'S CHARGES",
-                        value: '₹${state.todayRevenue.toStringAsFixed(0)}',
-                        subtitle: 'From Recorded Consumption',
-                        icon: Icons.currency_rupee_rounded,
-                        iconColor: AppColors.success,
-                        onTap: () => onNavigateTab(5), // Consumption
+                      _buildKpiCard(
+                        title: 'Lunch Booked',
+                        value: '${state.tomorrowLunchPortions}',
+                        sub: 'of ${state.totalStudents} students',
+                        icon: Icons.lunch_dining_rounded,
+                        color: AppColors.lunch,
+                        bg: AppColors.lunchBg,
+                        onTap: () => onNavigateTab(4),
                       ),
-                      StatCard(
-                        title: 'ACTIVE PRICES',
-                        value: '₹${state.prices.breakfast.toInt()} / ₹${state.prices.lunch.toInt()} / ₹${state.prices.dinner.toInt()}',
-                        subtitle: 'Breakfast / Lunch / Dinner',
-                        icon: Icons.sell_rounded,
-                        iconColor: AppColors.dinner,
-                        onTap: () => onNavigateTab(2), // Prices
+                      _buildKpiCard(
+                        title: 'Dinner Booked',
+                        value: '${state.tomorrowDinnerPortions}',
+                        sub: 'of ${state.totalStudents} students',
+                        icon: Icons.nightlight_round,
+                        color: AppColors.dinner,
+                        bg: AppColors.dinnerBg,
+                        onTap: () => onNavigateTab(4),
                       ),
                     ],
                   );
                 },
               ),
 
-              const SizedBox(height: 22),
+              const SizedBox(height: 24),
 
-              // Kitchen Preparation Spotlight for Tomorrow
+              // Tomorrow's Preparation Count Card matching Reference 1 (Image 9)
               CardContainer(
-                padding: const EdgeInsets.all(18),
-                backgroundColor: AppColors.surface,
+                padding: const EdgeInsets.all(20),
+                borderRadius: 20,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.restaurant_rounded, color: AppColors.primary, size: 20),
-                            const SizedBox(width: 8),
                             Text(
-                              "Tomorrow's Kitchen Prep Counts",
-                              style: AppTypography.titleLarge.copyWith(fontSize: 16),
+                              "Tomorrow's Preparation Count",
+                              style: AppTypography.titleLarge.copyWith(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 17,
+                                color: AppColors.primaryDark,
+                              ),
+                            ),
+                            Text(
+                              tomorrowFormatted,
+                              style: AppTypography.bodyMedium.copyWith(fontSize: 12, color: AppColors.textSecondary),
                             ),
                           ],
                         ),
-                        Text(
-                          tomorrowFormatted,
-                          style: AppTypography.labelSmall.copyWith(color: AppColors.textMuted),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildPortionBox(
-                            mealName: 'BREAKFAST',
-                            count: state.tomorrowBreakfastPortions,
-                            type: BadgeType.breakfast,
-                            price: state.prices.breakfast,
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: AppColors.cardBorder),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _buildPortionBox(
-                            mealName: 'LUNCH',
-                            count: state.tomorrowLunchPortions,
-                            type: BadgeType.lunch,
-                            price: state.prices.lunch,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _buildPortionBox(
-                            mealName: 'DINNER',
-                            count: state.tomorrowDinnerPortions,
-                            type: BadgeType.dinner,
-                            price: state.prices.dinner,
-                          ),
+                          onPressed: () => onNavigateTab(6),
+                          icon: const Icon(Icons.print_rounded, size: 14, color: AppColors.primaryDark),
+                          label: const Text('Kitchen Sheet', style: TextStyle(color: AppColors.primaryDark, fontSize: 12, fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.print_rounded, size: 16),
-                          label: const Text('View Preparation Sheet'),
-                          onPressed: () => onNavigateTab(6),
+                        // Breakfast Peach Box
+                        Expanded(
+                          child: _buildPrepBox(
+                            count: state.tomorrowBreakfastPortions,
+                            label: 'Breakfast',
+                            textColor: AppColors.breakfast,
+                            bgColor: AppColors.breakfastBg,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Lunch Mint Box
+                        Expanded(
+                          child: _buildPrepBox(
+                            count: state.tomorrowLunchPortions,
+                            label: 'Lunch',
+                            textColor: AppColors.lunch,
+                            bgColor: AppColors.lunchBg,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Dinner Lilac Box
+                        Expanded(
+                          child: _buildPrepBox(
+                            count: state.tomorrowDinnerPortions,
+                            label: 'Dinner',
+                            textColor: AppColors.dinner,
+                            bgColor: AppColors.dinnerBg,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Total Dark Forest Box
+                        Expanded(
+                          child: _buildPrepBox(
+                            count: totalTomorrowPortions,
+                            label: 'Total Meals',
+                            textColor: Colors.white,
+                            bgColor: AppColors.primaryDark,
+                          ),
                         ),
                       ],
                     ),
@@ -178,76 +225,150 @@ class AdminDashboardScreen extends ConsumerWidget {
                 ),
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
 
-              // Menu Status Spotlight
-              Text('Menu Publication Status', style: AppTypography.titleLarge),
-              const SizedBox(height: 10),
+              // Today's Menu Section (3 side-by-side cards)
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Expanded(
-                    child: _buildDayMenuStatusCard(
-                      label: "Today's Menus",
-                      dateStr: todayFormatted,
-                      bPublished: state.todayMeals?.breakfast?.isPublished ?? false,
-                      lPublished: state.todayMeals?.lunch?.isPublished ?? false,
-                      dPublished: state.todayMeals?.dinner?.isPublished ?? false,
-                      onManage: () => onNavigateTab(1),
-                    ),
+                  Text(
+                    "Today's Menu",
+                    style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.w800, fontSize: 18),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildDayMenuStatusCard(
-                      label: "Tomorrow's Menus",
-                      dateStr: tomorrowFormatted,
-                      bPublished: state.tomorrowMeals?.breakfast?.isPublished ?? false,
-                      lPublished: state.tomorrowMeals?.lunch?.isPublished ?? false,
-                      dPublished: state.tomorrowMeals?.dinner?.isPublished ?? false,
-                      onManage: () => onNavigateTab(1),
-                    ),
+                  TextButton(
+                    onPressed: () => onNavigateTab(1),
+                    child: const Text('Manage Menus →', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.accentWarm)),
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth >= 720;
+                  if (isWide) {
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: _buildAdminMealCard(
+                            slot: 'Breakfast',
+                            time: '7:30 AM – 9:30 AM',
+                            menu: state.todayMeals?.breakfast,
+                            price: state.prices.breakfast,
+                            defaultTitle: 'South Indian Delight',
+                            type: 'breakfast',
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildAdminMealCard(
+                            slot: 'Lunch',
+                            time: '12:30 PM – 2:30 PM',
+                            menu: state.todayMeals?.lunch,
+                            price: state.prices.lunch,
+                            defaultTitle: 'Royal Thali Feast',
+                            type: 'lunch',
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildAdminMealCard(
+                            slot: 'Dinner',
+                            time: '7:30 PM – 9:30 PM',
+                            menu: state.todayMeals?.dinner,
+                            price: state.prices.dinner,
+                            defaultTitle: 'Comfort Biryani Dinner',
+                            type: 'dinner',
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                  return Column(
+                    children: [
+                      _buildAdminMealCard(
+                        slot: 'Breakfast',
+                        time: '7:30 AM – 9:30 AM',
+                        menu: state.todayMeals?.breakfast,
+                        price: state.prices.breakfast,
+                        defaultTitle: 'South Indian Delight',
+                        type: 'breakfast',
+                      ),
+                      const SizedBox(height: 12),
+                      _buildAdminMealCard(
+                        slot: 'Lunch',
+                        time: '12:30 PM – 2:30 PM',
+                        menu: state.todayMeals?.lunch,
+                        price: state.prices.lunch,
+                        defaultTitle: 'Royal Thali Feast',
+                        type: 'lunch',
+                      ),
+                      const SizedBox(height: 12),
+                      _buildAdminMealCard(
+                        slot: 'Dinner',
+                        time: '7:30 PM – 9:30 PM',
+                        menu: state.todayMeals?.dinner,
+                        price: state.prices.dinner,
+                        defaultTitle: 'Comfort Biryani Dinner',
+                        type: 'dinner',
+                      ),
+                    ],
+                  );
+                },
               ),
 
               const SizedBox(height: 24),
 
-              // Quick Action Buttons
-              Text('Quick Operations', style: AppTypography.titleLarge),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
+              // Quick Actions Grid
+              Text(
+                'Quick Actions',
+                style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.w800, fontSize: 18),
+              ),
+              const SizedBox(height: 12),
+              Row(
                 children: [
-                  ActionChip(
-                    avatar: const Icon(Icons.edit_calendar_rounded, size: 16, color: AppColors.primary),
-                    label: const Text('Publish Menus'),
-                    backgroundColor: AppColors.primarySubtle,
-                    side: BorderSide.none,
-                    onPressed: () => onNavigateTab(1),
+                  Expanded(
+                    child: _buildQuickActionBtn(
+                      icon: Icons.edit_note_rounded,
+                      label: 'Edit Menu',
+                      color: AppColors.accentWarm,
+                      bg: AppColors.accentSubtle,
+                      onTap: () => onNavigateTab(1),
+                    ),
                   ),
-                  ActionChip(
-                    avatar: const Icon(Icons.checklist_rounded, size: 16, color: AppColors.lunch),
-                    label: const Text('Record Today Consumption'),
-                    backgroundColor: AppColors.surfaceMuted,
-                    side: BorderSide.none,
-                    onPressed: () => onNavigateTab(5),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildQuickActionBtn(
+                      icon: Icons.checklist_rtl_rounded,
+                      label: 'Record Consumption',
+                      color: AppColors.successDark,
+                      bg: AppColors.successSubtle,
+                      onTap: () => onNavigateTab(5),
+                    ),
                   ),
-                  ActionChip(
-                    avatar: const Icon(Icons.price_change_rounded, size: 16, color: AppColors.dinner),
-                    label: const Text('Configure Meal Prices'),
-                    backgroundColor: AppColors.surfaceMuted,
-                    side: BorderSide.none,
-                    onPressed: () => onNavigateTab(2),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildQuickActionBtn(
+                      icon: Icons.bar_chart_rounded,
+                      label: 'View Reports',
+                      color: AppColors.info,
+                      bg: AppColors.infoSubtle,
+                      onTap: () => onNavigateTab(6),
+                    ),
                   ),
-                  ActionChip(
-                    avatar: const Icon(Icons.people_outline_rounded, size: 16, color: AppColors.accent),
-                    label: const Text('Student Directory'),
-                    backgroundColor: AppColors.surfaceMuted,
-                    side: BorderSide.none,
-                    onPressed: () => onNavigateTab(3),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildQuickActionBtn(
+                      icon: Icons.people_outline_rounded,
+                      label: 'Manage Students',
+                      color: AppColors.primaryMedium,
+                      bg: AppColors.primarySubtle,
+                      onTap: () => onNavigateTab(3),
+                    ),
                   ),
                 ],
               ),
+
               const SizedBox(height: 24),
             ],
           ),
@@ -256,69 +377,84 @@ class AdminDashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildPortionBox({
-    required String mealName,
-    required int count,
-    required BadgeType type,
-    required double price,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceMuted,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          StatusBadge(label: mealName, type: type),
-          const SizedBox(height: 8),
-          Text(
-            '$count',
-            style: AppTypography.displayLarge.copyWith(fontSize: 24, fontWeight: FontWeight.w800),
-          ),
-          Text(
-            'portions (₹${price.toInt()})',
-            style: AppTypography.bodyMedium.copyWith(fontSize: 11, color: AppColors.textMuted),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDayMenuStatusCard({
-    required String label,
-    required String dateStr,
-    required bool bPublished,
-    required bool lPublished,
-    required bool dPublished,
-    required VoidCallback onManage,
+  Widget _buildKpiCard({
+    required String title,
+    required String value,
+    required String sub,
+    required IconData icon,
+    required Color color,
+    required Color bg,
+    required VoidCallback onTap,
   }) {
     return CardContainer(
       padding: const EdgeInsets.all(14),
+      borderRadius: 18,
+      onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: AppTypography.titleMedium.copyWith(fontSize: 14)),
-          Text(dateStr, style: AppTypography.labelSmall.copyWith(color: AppColors.textMuted)),
-          const SizedBox(height: 10),
-          _buildMenuPublishedRow('Breakfast', bPublished),
-          const SizedBox(height: 4),
-          _buildMenuPublishedRow('Lunch', lPublished),
-          const SizedBox(height: 4),
-          _buildMenuPublishedRow('Dinner', dPublished),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: TextButton(
-              onPressed: onManage,
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                padding: EdgeInsets.zero,
-                alignment: Alignment.centerLeft,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: AppTypography.labelSmall.copyWith(fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w600),
               ),
-              child: const Text('Manage Menu →', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+                child: Icon(icon, color: color, size: 16),
+              ),
+            ],
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: AppTypography.displayMedium.copyWith(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.primaryDark),
+              ),
+              Text(
+                sub,
+                style: AppTypography.labelSmall.copyWith(color: AppColors.textMuted, fontSize: 10),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPrepBox({
+    required int count,
+    required String label,
+    required Color textColor,
+    required Color bgColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Text(
+            '$count',
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              color: textColor,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: textColor.withOpacity(0.9),
             ),
           ),
         ],
@@ -326,27 +462,104 @@ class AdminDashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildMenuPublishedRow(String name, bool isPub) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(name, style: AppTypography.bodyMedium.copyWith(fontSize: 12)),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: isPub ? AppColors.successSubtle : AppColors.warningSubtle,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(
-            isPub ? 'LIVE' : 'DRAFT',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: isPub ? AppColors.success : AppColors.warning,
+  Widget _buildAdminMealCard({
+    required String slot,
+    required String time,
+    required MenuModel? menu,
+    required double price,
+    required String defaultTitle,
+    required String type,
+  }) {
+    final title = menu?.title.isNotEmpty == true ? menu!.title : defaultTitle;
+    final isPub = menu?.isPublished ?? true;
+
+    return CardContainer(
+      padding: const EdgeInsets.all(12),
+      borderRadius: 16,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: FoodImage(
+              mealType: type,
+              width: double.infinity,
+              height: 100,
+              borderRadius: 12,
             ),
           ),
-        ),
-      ],
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                slot,
+                style: AppTypography.labelSmall.copyWith(color: AppColors.primaryMedium, fontWeight: FontWeight.bold),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isPub ? AppColors.successSubtle : AppColors.warningSubtle,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  isPub ? 'PUBLISHED' : 'DRAFT',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: isPub ? AppColors.successDark : AppColors.warning,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.titleMedium.copyWith(fontSize: 14, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(time, style: AppTypography.labelSmall.copyWith(color: AppColors.textMuted, fontSize: 10)),
+              Text('₹${price.toStringAsFixed(0)}', style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.primaryDark)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionBtn({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required Color bg,
+    required VoidCallback onTap,
+  }) {
+    return CardContainer(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+      borderRadius: 16,
+      backgroundColor: AppColors.surface,
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: AppTypography.labelSmall.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 11),
+          ),
+        ],
+      ),
     );
   }
 }
