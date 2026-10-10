@@ -283,3 +283,11 @@ class StudentNotificationsNotifier extends StateNotifier<AsyncValue<List<Notific
 final studentNotificationsProvider = StateNotifierProvider<StudentNotificationsNotifier, AsyncValue<List<NotificationModel>>>((ref) {
   return StudentNotificationsNotifier();
 });
+
+// 5. My Bookings History Provider
+final myBookingsProvider = FutureProvider<List<BookingModel>>((ref) async {
+  final response = await apiClient.dio.get(ApiConstants.myBookings);
+  return (response.data as List<dynamic>)
+      .map((b) => BookingModel.fromJson(b as Map<String, dynamic>))
+      .toList();
+});
