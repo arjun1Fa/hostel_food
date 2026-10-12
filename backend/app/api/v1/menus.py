@@ -125,6 +125,8 @@ async def create_or_update_menu(
         )
         return reloaded.scalar_one()
 
+from app.models.audit import AuditLog
+
 @router.patch("/{menu_id}/publish", response_model=MenuOut)
 async def toggle_menu_publish(
     menu_id: int,
@@ -139,6 +141,13 @@ async def toggle_menu_publish(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Menu not found")
     
     menu.is_published = is_published
+    audit = AuditLog(
+        user_id=admin.id,
+        action="MENU_PUBLISH_TOGGLE",
+        resource=f"menu:{menu.id}",
+        details=f"Admin {admin.email} toggled publish state of {menu.meal_type.value} menu ({menu.date}) to {is_published}.",
+    )
+    db.add(audit)
     await db.commit()
     
     reloaded = await db.execute(
@@ -158,6 +167,14 @@ async def delete_menu(
     if not menu:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Menu not found")
     
+    audit = AuditLog(
+        user_id=admin.id,
+        action="MENU_DELETE",
+        resource=f"menu:{menu.id}",
+        details=f"Admin {admin.email} deleted menu {menu.title} ({menu.meal_type.value}, {menu.date}).",
+    )
+    db.add(audit)
     await db.delete(menu)
     await db.commit()
     return {"message": "Menu deleted successfully"}
+
