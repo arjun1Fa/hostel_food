@@ -4,12 +4,13 @@ from app.models.enums import MealType
 
 class MealPriceUpdate(BaseModel):
     meal_type: MealType
-    price: float = Field(ge=0.0)
+    price: float = Field(gt=0.0, le=10000.0)
 
 class AllPricesUpdate(BaseModel):
-    breakfast: float = Field(ge=0.0)
-    lunch: float = Field(ge=0.0)
-    dinner: float = Field(ge=0.0)
+    breakfast: float = Field(gt=0.0, le=10000.0)
+    lunch: float = Field(gt=0.0, le=10000.0)
+    dinner: float = Field(gt=0.0, le=10000.0)
+
 
 class MealPricesOut(BaseModel):
     breakfast: float
