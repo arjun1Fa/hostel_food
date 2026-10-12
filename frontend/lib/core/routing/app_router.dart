@@ -5,6 +5,8 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/student/presentation/student_shell.dart';
 import '../../features/admin/presentation/admin_shell.dart';
+import '../theme/app_animations.dart';
+
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
@@ -42,20 +44,37 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/login',
-        builder: (context, state) => const LoginScreen(),
+        pageBuilder: (context, state) => AppAnimations.pageTransition(
+          context: context,
+          state: state,
+          child: const LoginScreen(),
+        ),
       ),
       GoRoute(
         path: '/register',
-        builder: (context, state) => const RegisterScreen(),
+        pageBuilder: (context, state) => AppAnimations.pageTransition(
+          context: context,
+          state: state,
+          child: const RegisterScreen(),
+        ),
       ),
       GoRoute(
         path: '/student',
-        builder: (context, state) => const StudentShell(),
+        pageBuilder: (context, state) => AppAnimations.pageTransition(
+          context: context,
+          state: state,
+          child: const StudentShell(),
+        ),
       ),
       GoRoute(
         path: '/admin',
-        builder: (context, state) => const AdminShell(),
+        pageBuilder: (context, state) => AppAnimations.pageTransition(
+          context: context,
+          state: state,
+          child: const AdminShell(),
+        ),
       ),
     ],
   );
 });
+
