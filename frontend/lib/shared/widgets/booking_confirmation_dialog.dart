@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/theme/app_animations.dart';
 import 'food_image.dart';
 
-class BookingConfirmationDialog extends StatelessWidget {
+class BookingConfirmationDialog extends StatefulWidget {
   final String dateText;
   final bool bookedBreakfast;
   final bool bookedLunch;
@@ -57,11 +58,45 @@ class BookingConfirmationDialog extends StatelessWidget {
   }
 
   @override
+  State<BookingConfirmationDialog> createState() => _BookingConfirmationDialogState();
+}
+
+class _BookingConfirmationDialogState extends State<BookingConfirmationDialog>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+
+    _scaleAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.elasticOut,
+    );
+
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+
+  @override
   Widget build(BuildContext context) {
     double total = 0;
-    if (bookedBreakfast) total += breakfastPrice;
-    if (bookedLunch) total += lunchPrice;
-    if (bookedDinner) total += dinnerPrice;
+    if (widget.bookedBreakfast) total += widget.breakfastPrice;
+    if (widget.bookedLunch) total += widget.lunchPrice;
+    if (widget.bookedDinner) total += widget.dinnerPrice;
+
+    final isReduced = AppAnimations.isReducedMotion(context);
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
@@ -74,19 +109,42 @@ class BookingConfirmationDialog extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Radiant checkmark circle
-              Container(
-                width: 76,
-                height: 76,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.successSubtle,
-                  border: Border.all(color: AppColors.success.withOpacity(0.3), width: 3),
-                ),
-                child: const Center(
-                  child: Icon(Icons.check_rounded, color: AppColors.successDark, size: 44),
-                ),
-              ),
+              // Spring Animated Checkmark with Glowing Aura
+              isReduced
+                  ? Container(
+                      width: 76,
+                      height: 76,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.successSubtle,
+                        border: Border.all(color: AppColors.success.withOpacity(0.4), width: 3),
+                      ),
+                      child: const Center(
+                        child: Icon(Icons.check_rounded, color: AppColors.successDark, size: 44),
+                      ),
+                    )
+                  : ScaleTransition(
+                      scale: _scaleAnimation,
+                      child: Container(
+                        width: 76,
+                        height: 76,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.successSubtle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.success.withOpacity(0.25),
+                              blurRadius: 20,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                          border: Border.all(color: AppColors.success.withOpacity(0.4), width: 3),
+                        ),
+                        child: const Center(
+                          child: Icon(Icons.check_rounded, color: AppColors.successDark, size: 44),
+                        ),
+                      ),
+                    ),
               const SizedBox(height: 18),
               Text(
                 'Booking Confirmed!',
@@ -99,7 +157,7 @@ class BookingConfirmationDialog extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Your meals for $dateText have been successfully locked in.',
+                'Your meals for ${widget.dateText} have been successfully locked in.',
                 style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
                 textAlign: TextAlign.center,
               ),
@@ -115,13 +173,13 @@ class BookingConfirmationDialog extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    if (bookedBreakfast)
-                      _buildMealRow('Breakfast', 'South Indian Delight', breakfastPrice, 'breakfast'),
-                    if (bookedLunch)
-                      _buildMealRow('Lunch', 'Royal Thali Feast', lunchPrice, 'lunch'),
-                    if (bookedDinner)
-                      _buildMealRow('Dinner', 'Comfort Biryani Dinner', dinnerPrice, 'dinner'),
-                    if (!bookedBreakfast && !bookedLunch && !bookedDinner)
+                    if (widget.bookedBreakfast)
+                      _buildMealRow('Breakfast', 'South Indian Delight', widget.breakfastPrice, 'breakfast'),
+                    if (widget.bookedLunch)
+                      _buildMealRow('Lunch', 'Royal Thali Feast', widget.lunchPrice, 'lunch'),
+                    if (widget.bookedDinner)
+                      _buildMealRow('Dinner', 'Comfort Biryani Dinner', widget.dinnerPrice, 'dinner'),
+                    if (!widget.bookedBreakfast && !widget.bookedLunch && !widget.bookedDinner)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
                         child: Text(
@@ -137,8 +195,8 @@ class BookingConfirmationDialog extends StatelessWidget {
                           'Total Estimated Cost',
                           style: AppTypography.titleMedium.copyWith(fontSize: 14, fontWeight: FontWeight.w600),
                         ),
-                        Text(
-                          '₹${total.toStringAsFixed(0)}',
+                        AnimatedPriceCounter(
+                          amount: total,
                           style: AppTypography.titleLarge.copyWith(
                             color: AppColors.primaryDark,
                             fontWeight: FontWeight.w800,
@@ -189,7 +247,7 @@ class BookingConfirmationDialog extends StatelessWidget {
                   ),
                   onPressed: () {
                     Navigator.of(context).pop();
-                    onViewBookings();
+                    widget.onViewBookings();
                   },
                   child: const Text('View My Bookings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 ),
@@ -204,7 +262,7 @@ class BookingConfirmationDialog extends StatelessWidget {
                   ),
                   onPressed: () {
                     Navigator.of(context).pop();
-                    onBackToHome();
+                    widget.onBackToHome();
                   },
                   child: const Text('Back to Home', style: TextStyle(fontWeight: FontWeight.w600)),
                 ),
