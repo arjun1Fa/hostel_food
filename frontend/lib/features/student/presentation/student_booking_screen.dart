@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/theme/app_animations.dart';
+import '../../../features/auth/state/auth_controller.dart';
 import '../../../shared/widgets/card_container.dart';
 import '../../../shared/widgets/countdown_timer_badge.dart';
 import '../../../shared/widgets/food_image.dart';
@@ -21,6 +23,7 @@ class StudentBookingScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
     final menuState = ref.watch(studentMenuProvider);
     final bookingState = ref.watch(studentBookingProvider);
     final bookingNotifier = ref.read(studentBookingProvider.notifier);
@@ -90,6 +93,30 @@ class StudentBookingScreen extends ConsumerWidget {
               ),
             ),
 
+            // Offline Notification Banner
+            if (authState.isOffline)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                color: AppColors.warningSubtle,
+                child: Row(
+                  children: [
+                    const Icon(Icons.wifi_off_rounded, size: 16, color: AppColors.warning),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Offline Mode: You can review menus, but live bookings require active internet.',
+                        style: AppTypography.bodySmall.copyWith(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
             // Scrollable Content
             Expanded(
               child: bookingState.isLoading
@@ -99,145 +126,153 @@ class StudentBookingScreen extends ConsumerWidget {
                   : SingleChildScrollView(
                       padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 8.0),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // 1. Live Countdown Timer Card
-                          const CountdownTimerBadge(),
-
-                          const SizedBox(height: 18),
-
-                          // 2. Section Heading
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                "Tomorrow's Menu & Selection",
-                                style: AppTypography.titleMedium.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textPrimary,
+                          // Midnight Cutoff Notice
+                          CardContainer(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            backgroundColor: bookingState.isLocked ? AppColors.dangerSubtle : AppColors.primarySubtle,
+                            border: Border.all(
+                              color: bookingState.isLocked ? AppColors.danger.withOpacity(0.3) : AppColors.primaryTint,
+                            ),
+                            borderRadius: 16,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  bookingState.isLocked ? Icons.lock_clock_rounded : Icons.schedule_rounded,
+                                  color: bookingState.isLocked ? AppColors.danger : AppColors.primaryMedium,
+                                  size: 22,
                                 ),
-                              ),
-                              if (bookingState.committedBooking != null)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: bookingState.hasUnsavedChanges
-                                        ? AppColors.warningSubtle
-                                        : AppColors.successSubtle,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Icon(
-                                        bookingState.hasUnsavedChanges ? Icons.edit_note_rounded : Icons.check_circle_rounded,
-                                        size: 13,
-                                        color: bookingState.hasUnsavedChanges ? AppColors.warning : AppColors.successDark,
-                                      ),
-                                      const SizedBox(width: 4),
                                       Text(
-                                        bookingState.hasUnsavedChanges ? 'UNSAVED' : 'CONFIRMED',
-                                        style: AppTypography.labelSmall.copyWith(
-                                          color: bookingState.hasUnsavedChanges ? AppColors.warning : AppColors.successDark,
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 10,
+                                        bookingState.isLocked ? 'Booking Window Locked' : 'Authoritative Cutoff: 12:00 AM IST',
+                                        style: AppTypography.titleMedium.copyWith(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: bookingState.isLocked ? AppColors.danger : AppColors.primaryDark,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        bookingState.isLocked
+                                            ? 'The deadline has passed. Contact the hostel admin office for overrides.'
+                                            : 'Tomorrow’s portions will be calculated for kitchen preparation at midnight.',
+                                        style: AppTypography.bodySmall.copyWith(
+                                          fontSize: 11,
+                                          color: AppColors.textSecondary,
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
+                                if (!bookingState.isLocked) const CountdownTimerBadge(),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Header instruction
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Select Your Meals',
+                                style: AppTypography.titleLarge.copyWith(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                '$selectedCount / 3 selected',
+                                style: AppTypography.labelSmall.copyWith(
+                                  color: AppColors.primaryMedium,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ],
                           ),
-
                           const SizedBox(height: 12),
 
-                          // Breakfast Selection Card
+                          // 1. Breakfast Card
                           _buildMealSelectionCard(
                             slot: 'Breakfast',
                             timeSlot: '7:30 AM – 9:30 AM',
                             title: menuState.tomorrowMeals?.breakfast?.title ?? 'South Indian Delight',
-                            desc: menuState.tomorrowMeals?.breakfast?.description ?? 'Steamed rice idlis, crispy medu vada, vegetable sambar & fresh coconut chutney',
-                            dietary: menuState.tomorrowMeals?.breakfast?.dietaryTags ?? 'Vegetarian • High Protein',
+                            desc: menuState.tomorrowMeals?.breakfast?.description ?? 'Fresh idlis, crispy vada, and rich sambar',
+                            dietary: menuState.tomorrowMeals?.breakfast?.dietaryTags ?? 'Vegetarian',
                             price: menuState.prices.breakfast,
                             isSelected: bookingState.draftBreakfast,
                             isLocked: bookingState.isLocked,
-                            onToggle: bookingNotifier.toggleBreakfast,
+                            onToggle: () => bookingNotifier.toggleBreakfast(),
                             mealType: 'breakfast',
                           ),
-
                           const SizedBox(height: 12),
 
-                          // Lunch Selection Card
+                          // 2. Lunch Card
                           _buildMealSelectionCard(
                             slot: 'Lunch',
                             timeSlot: '12:30 PM – 2:30 PM',
                             title: menuState.tomorrowMeals?.lunch?.title ?? 'Royal Thali Feast',
-                            desc: menuState.tomorrowMeals?.lunch?.description ?? 'Paneer butter masala, dal tadka, aromatic jeera rice, soft roti & garden salad',
-                            dietary: menuState.tomorrowMeals?.lunch?.dietaryTags ?? 'Vegetarian • Wholesome',
+                            desc: menuState.tomorrowMeals?.lunch?.description ?? 'Paneer butter masala, dal tadka, jeera rice, fresh rotis',
+                            dietary: menuState.tomorrowMeals?.lunch?.dietaryTags ?? 'Balanced Diet',
                             price: menuState.prices.lunch,
                             isSelected: bookingState.draftLunch,
                             isLocked: bookingState.isLocked,
-                            onToggle: bookingNotifier.toggleLunch,
+                            onToggle: () => bookingNotifier.toggleLunch(),
                             mealType: 'lunch',
                           ),
-
                           const SizedBox(height: 12),
 
-                          // Dinner Selection Card
+                          // 3. Dinner Card
                           _buildMealSelectionCard(
                             slot: 'Dinner',
                             timeSlot: '7:30 PM – 9:30 PM',
-                            title: menuState.tomorrowMeals?.dinner?.title ?? 'Comfort Biryani Dinner',
-                            desc: menuState.tomorrowMeals?.dinner?.description ?? 'Fragrant Dum biryani, creamy cucumber raita, crisp roasted papad & dessert',
-                            dietary: menuState.tomorrowMeals?.dinner?.dietaryTags ?? 'Comfort • Wholesome',
+                            title: menuState.tomorrowMeals?.dinner?.title ?? 'Hyderabadi Veg Biryani Special',
+                            desc: menuState.tomorrowMeals?.dinner?.description ?? 'Dum biryani with rich gravy, mirchi ka salan, and kheer',
+                            dietary: menuState.tomorrowMeals?.dinner?.dietaryTags ?? 'Special Dinner',
                             price: menuState.prices.dinner,
                             isSelected: bookingState.draftDinner,
                             isLocked: bookingState.isLocked,
-                            onToggle: bookingNotifier.toggleDinner,
+                            onToggle: () => bookingNotifier.toggleDinner(),
                             mealType: 'dinner',
                           ),
+                          const SizedBox(height: 18),
 
-                          const SizedBox(height: 16),
-
-                          // Policy card
-                          Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceHighlight,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: AppColors.cardBorder),
-                            ),
+                          // Billing Rule Info Callout
+                          CardContainer(
+                            padding: const EdgeInsets.all(12),
+                            backgroundColor: AppColors.surfaceHighlight,
+                            border: Border.all(color: AppColors.cardBorderLight),
+                            borderRadius: 14,
                             child: Row(
                               children: [
-                                const Icon(Icons.shield_outlined, size: 20, color: AppColors.primaryMedium),
-                                const SizedBox(width: 12),
+                                const Icon(Icons.verified_user_outlined, size: 20, color: AppColors.primary),
+                                const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
-                                    'Hostel Dining Policy: Only pre-booked meals are prepared to prevent kitchen waste. Charges apply based on recorded consumption.',
-                                    style: AppTypography.bodyMedium.copyWith(
-                                      fontSize: 11,
-                                      color: AppColors.textSecondary,
-                                      height: 1.35,
-                                    ),
+                                    'Pre-booking confirms kitchen portions. Charges are applied only when your actual consumption is recorded.',
+                                    style: AppTypography.bodySmall.copyWith(fontSize: 11, color: AppColors.textSecondary),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 24),
                         ],
                       ),
                     ),
             ),
 
-            // Persistent Bottom Sticky Summary & Action Bar
+            // Bottom Sticky Bar (Live Total + Action)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               decoration: BoxDecoration(
                 color: AppColors.surface,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                border: Border.all(color: AppColors.cardBorder),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.06),
@@ -245,6 +280,7 @@ class StudentBookingScreen extends ConsumerWidget {
                     offset: const Offset(0, -4),
                   ),
                 ],
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
               ),
               child: SafeArea(
                 top: false,
@@ -252,42 +288,21 @@ class StudentBookingScreen extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
+                        // Live Total Price with Animated Counter
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                Text(
-                                  'Estimated Total',
-                                  style: AppTypography.bodyMedium.copyWith(
-                                    color: AppColors.textSecondary,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primarySubtle,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Text(
-                                    '$selectedCount ${selectedCount == 1 ? "meal" : "meals"}',
-                                    style: AppTypography.labelSmall.copyWith(
-                                      color: AppColors.primaryDark,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                            Text(
+                              'Live Estimated Total',
+                              style: AppTypography.labelSmall.copyWith(
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                             const SizedBox(height: 2),
-                            Text(
-                              '₹${estimatedCost.toStringAsFixed(0)}',
+                            AnimatedPriceCounter(
+                              amount: estimatedCost,
                               style: AppTypography.titleLarge.copyWith(
                                 fontSize: 24,
                                 fontWeight: FontWeight.w800,
@@ -296,18 +311,21 @@ class StudentBookingScreen extends ConsumerWidget {
                             ),
                           ],
                         ),
+                        const Spacer(),
                         // Confirm button
                         SizedBox(
                           height: 50,
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: bookingState.isLocked ? AppColors.textMuted : AppColors.accent,
+                              backgroundColor: (bookingState.isLocked || authState.isOffline)
+                                  ? AppColors.textMuted
+                                  : AppColors.accent,
                               foregroundColor: Colors.white,
                               elevation: 2,
                               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
                             ),
-                            onPressed: bookingState.isLocked || bookingState.isSaving
+                            onPressed: (bookingState.isLocked || bookingState.isSaving || authState.isOffline)
                                 ? null
                                 : () async {
                                     final success = await bookingNotifier.saveBooking();
@@ -378,105 +396,130 @@ class StudentBookingScreen extends ConsumerWidget {
     required VoidCallback onToggle,
     required String mealType,
   }) {
-    return CardContainer(
-      padding: const EdgeInsets.all(12),
-      borderRadius: 18,
-      backgroundColor: isSelected ? AppColors.surface : AppColors.surfaceMuted.withOpacity(0.6),
-      border: Border.all(
-        color: isSelected ? AppColors.primaryMedium : AppColors.cardBorder,
-        width: isSelected ? 1.5 : 1,
+    return AnimatedContainer(
+      duration: AppAnimations.fast,
+      curve: Curves.easeInOut,
+      decoration: BoxDecoration(
+        color: isSelected ? AppColors.surface : AppColors.surfaceMuted.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isSelected ? AppColors.primaryMedium : AppColors.cardBorder,
+          width: isSelected ? 1.8 : 1,
+        ),
+        boxShadow: isSelected
+            ? [
+                BoxShadow(
+                  color: AppColors.primaryDark.withOpacity(0.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : null,
       ),
-      onTap: isLocked ? null : onToggle,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Food Thumbnail
-          FoodImage(
-            mealType: mealType,
-            width: 76,
-            height: 76,
-            borderRadius: 14,
-          ),
-          const SizedBox(width: 14),
-          // Description
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: isLocked ? null : onToggle,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: mealType == 'breakfast'
-                            ? AppColors.breakfastBg
-                            : mealType == 'lunch'
-                                ? AppColors.lunchBg
-                                : AppColors.dinnerBg,
-                        borderRadius: BorderRadius.circular(6),
+                // Food Thumbnail
+                FoodImage(
+                  mealType: mealType,
+                  width: 76,
+                  height: 76,
+                  borderRadius: 14,
+                ),
+                const SizedBox(width: 14),
+                // Description
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: mealType == 'breakfast'
+                                  ? AppColors.breakfastBg
+                                  : mealType == 'lunch'
+                                      ? AppColors.lunchBg
+                                      : AppColors.dinnerBg,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '$slot • $timeSlot',
+                              style: AppTypography.labelSmall.copyWith(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: mealType == 'breakfast'
+                                    ? AppColors.breakfast
+                                    : mealType == 'lunch'
+                                        ? AppColors.lunch
+                                        : AppColors.dinner,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      child: Text(
-                        '$slot • $timeSlot',
-                        style: AppTypography.labelSmall.copyWith(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: mealType == 'breakfast'
-                              ? AppColors.breakfast
-                              : mealType == 'lunch'
-                                  ? AppColors.lunch
-                                  : AppColors.dinner,
+                      const SizedBox(height: 4),
+                      Text(
+                        title,
+                        style: AppTypography.titleMedium.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          color: AppColors.textPrimary,
                         ),
                       ),
+                      const SizedBox(height: 2),
+                      Text(
+                        desc,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.bodyMedium.copyWith(fontSize: 11, color: AppColors.textSecondary),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '₹${price.toStringAsFixed(0)}',
+                        style: AppTypography.titleMedium.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primaryDark,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Checkbox toggle with AnimatedSwitcher
+                AnimatedContainer(
+                  duration: AppAnimations.fast,
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isSelected ? AppColors.primaryDark : Colors.transparent,
+                    border: Border.all(
+                      color: isSelected ? AppColors.primaryDark : AppColors.cardBorder,
+                      width: 2,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  title,
-                  style: AppTypography.titleMedium.copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                    color: AppColors.textPrimary,
+                  ),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 150),
+                    child: isSelected
+                        ? const Icon(Icons.check_rounded, color: Colors.white, size: 18, key: ValueKey('checked'))
+                        : const SizedBox.shrink(key: ValueKey('empty')),
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  desc,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.bodyMedium.copyWith(fontSize: 11, color: AppColors.textSecondary),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '₹${price.toStringAsFixed(0)}',
-                  style: AppTypography.titleMedium.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.primaryDark,
-                    fontSize: 15,
-                  ),
-                ),
+                const SizedBox(width: 4),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          // Checkbox toggle
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isSelected ? AppColors.primaryDark : Colors.transparent,
-              border: Border.all(
-                color: isSelected ? AppColors.primaryDark : AppColors.cardBorder,
-                width: 2,
-              ),
-            ),
-            child: isSelected
-                ? const Icon(Icons.check_rounded, color: Colors.white, size: 18)
-                : null,
-          ),
-          const SizedBox(width: 4),
-        ],
+        ),
       ),
     );
   }
