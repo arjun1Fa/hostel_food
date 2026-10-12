@@ -6,7 +6,8 @@ from app.models.user import User
 from app.models.notification import Notification, DeviceToken
 from app.schemas.notification import NotificationOut, DeviceTokenCreate
 from app.services.reminder_service import run_booking_reminders
-from app.api.deps import get_current_user
+from app.models.audit import AuditLog
+from app.api.deps import get_current_user, get_current_admin
 
 router = APIRouter(prefix="/notifications", tags=["Notifications & Reminders"])
 
@@ -68,8 +69,17 @@ async def register_device_token(
 async def trigger_reminders_test(
     is_final: bool = False,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    admin: User = Depends(get_current_admin),
 ):
-    """Developer and Admin test endpoint to trigger booking reminders on demand."""
+    """Admin test endpoint to trigger booking reminders on demand."""
     result = await run_booking_reminders(db=db, is_final=is_final)
+    audit = AuditLog(
+        user_id=admin.id,
+        action="TRIGGER_REMINDERS",
+        resource="notifications:reminders",
+        details=f"Admin {admin.email} manually triggered reminders (is_final={is_final}). Result: {result}",
+    )
+    db.add(audit)
+    await db.commit()
     return result
+
