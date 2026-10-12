@@ -1,21 +1,52 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Platform-appropriate secure storage service:
+/// - Android & iOS: Encrypted Keystore / Keychain backed storage via FlutterSecureStorage.
+/// - Web & PWA: Short-lived access token held in-memory only. Refresh token handled via HttpOnly cookie.
+///   No long-lived tokens stored in localStorage or sessionStorage (OWASP ASVS compliance).
 class TokenStorage {
-  static const String _accessTokenKey = 'access_token';
-  static const String _refreshTokenKey = 'refresh_token';
-  static const String _userRoleKey = 'user_role';
-  static const String _userEmailKey = 'user_email';
-  static const String _userNameKey = 'user_name';
-  static const String _userIdKey = 'user_id';
-  static const String _roomNumberKey = 'room_number';
+  static const String _accessTokenKey = 'sec_access_token';
+  static const String _refreshTokenKey = 'sec_refresh_token';
+  static const String _csrfTokenKey = 'sec_csrf_token';
+
+  // Shared non-sensitive profile keys
+  static const String _userRoleKey = 'profile_user_role';
+  static const String _userEmailKey = 'profile_user_email';
+  static const String _userNameKey = 'profile_user_name';
+  static const String _userIdKey = 'profile_user_id';
+  static const String _roomNumberKey = 'profile_room_number';
+
+  // Mobile / Desktop secure storage instance
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+
+
+  // In-memory token storage for Web / PWA (ephemeral, cleared on browser tab close or reload)
+  static String? _inMemoryAccessToken;
+  static String? _inMemoryCsrfToken;
 
   static Future<void> saveTokens({
     required String accessToken,
-    required String refreshToken,
+    String? refreshToken,
+    String? csrfToken,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_accessTokenKey, accessToken);
-    await prefs.setString(_refreshTokenKey, refreshToken);
+    if (kIsWeb) {
+      _inMemoryAccessToken = accessToken;
+      if (csrfToken != null) {
+        _inMemoryCsrfToken = csrfToken;
+      }
+      // On Web, refresh token is NOT stored in localStorage or sessionStorage.
+      // It is securely held in an HttpOnly, Secure, SameSite=Lax cookie by the browser.
+    } else {
+      await _secureStorage.write(key: _accessTokenKey, value: accessToken);
+      if (refreshToken != null) {
+        await _secureStorage.write(key: _refreshTokenKey, value: refreshToken);
+      }
+      if (csrfToken != null) {
+        await _secureStorage.write(key: _csrfTokenKey, value: csrfToken);
+      }
+    }
   }
 
   static Future<void> saveUserData({
@@ -36,13 +67,25 @@ class TokenStorage {
   }
 
   static Future<String?> getAccessToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_accessTokenKey);
+    if (kIsWeb) {
+      return _inMemoryAccessToken;
+    }
+    return await _secureStorage.read(key: _accessTokenKey);
   }
 
   static Future<String?> getRefreshToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_refreshTokenKey);
+    if (kIsWeb) {
+      // On Web, refresh token is transported via HttpOnly cookie
+      return null;
+    }
+    return await _secureStorage.read(key: _refreshTokenKey);
+  }
+
+  static Future<String?> getCsrfToken() async {
+    if (kIsWeb) {
+      return _inMemoryCsrfToken;
+    }
+    return await _secureStorage.read(key: _csrfTokenKey);
   }
 
   static Future<String?> getUserRole() async {
@@ -70,7 +113,17 @@ class TokenStorage {
   }
 
   static Future<void> clear() async {
+    if (kIsWeb) {
+      _inMemoryAccessToken = null;
+      _inMemoryCsrfToken = null;
+    } else {
+      await _secureStorage.deleteAll();
+    }
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await prefs.remove(_userIdKey);
+    await prefs.remove(_userEmailKey);
+    await prefs.remove(_userNameKey);
+    await prefs.remove(_userRoleKey);
+    await prefs.remove(_roomNumberKey);
   }
 }
