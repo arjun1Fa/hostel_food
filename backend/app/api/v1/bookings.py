@@ -85,8 +85,26 @@ async def get_booking_for_date(
     current_user: User = Depends(get_current_user),
 ):
     target_user_id = current_user.id
-    if user_id and current_user.role == UserRole.ADMIN:
+    target_user = current_user
+
+    if user_id is not None and user_id != current_user.id:
+        if current_user.role != UserRole.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied: Students cannot inspect bookings for other students.",
+            )
+        # Admin querying specific student: verify student belongs to same hostel
+        user_res = await db.execute(
+            select(User).where(User.id == user_id, User.hostel_id == current_user.hostel_id)
+        )
+        found_student = user_res.scalar_one_or_none()
+        if not found_student:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Student not found in your hostel.",
+            )
         target_user_id = user_id
+        target_user = found_student
 
     query = select(MealBooking).where(
         MealBooking.user_id == target_user_id,
@@ -101,8 +119,8 @@ async def get_booking_for_date(
     return BookingOut(
         id=b.id,
         user_id=b.user_id,
-        user_name=current_user.full_name,
-        room_number=current_user.room_number,
+        user_name=target_user.full_name,
+        room_number=target_user.room_number,
         date=b.date,
         breakfast_booked=b.breakfast_booked,
         lunch_booked=b.lunch_booked,
@@ -139,11 +157,15 @@ async def create_or_update_student_booking(
     booking = res.scalar_one_or_none()
 
     now_utc = datetime.now(timezone.utc)
+    from sqlalchemy.exc import IntegrityError
+
     if booking:
         booking.breakfast_booked = req.breakfast_booked
         booking.lunch_booked = req.lunch_booked
         booking.dinner_booked = req.dinner_booked
         booking.updated_at = now_utc
+        await db.commit()
+        await db.refresh(booking)
     else:
         booking = MealBooking(
             hostel_id=current_user.hostel_id,
@@ -157,9 +179,25 @@ async def create_or_update_student_booking(
             admin_override=False,
         )
         db.add(booking)
-
-    await db.commit()
-    await db.refresh(booking)
+        try:
+            await db.commit()
+            await db.refresh(booking)
+        except IntegrityError:
+            await db.rollback()
+            # Race condition resolved: update existing
+            res2 = await db.execute(
+                select(MealBooking).where(
+                    MealBooking.user_id == current_user.id,
+                    MealBooking.date == req.date,
+                )
+            )
+            booking = res2.scalar_one()
+            booking.breakfast_booked = req.breakfast_booked
+            booking.lunch_booked = req.lunch_booked
+            booking.dinner_booked = req.dinner_booked
+            booking.updated_at = now_utc
+            await db.commit()
+            await db.refresh(booking)
 
     price_map = await _get_current_price_map(db, current_user.hostel_id)
     return BookingOut(
@@ -178,6 +216,7 @@ async def create_or_update_student_booking(
         is_locked=is_past_midnight_cutoff(booking.date),
         estimated_cost=_calculate_estimated_cost(booking, price_map),
     )
+
 
 @router.post("/admin-override", response_model=BookingOut)
 async def admin_override_booking(
