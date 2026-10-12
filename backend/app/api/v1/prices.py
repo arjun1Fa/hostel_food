@@ -44,7 +44,11 @@ async def update_prices(
 
     now_utc = datetime.now(timezone.utc)
 
-    for meal_type, new_price in updates:
+    from app.models.audit import AuditLog
+    changed_items = []
+
+    for meal_type, raw_price in updates:
+        new_price = round(float(raw_price), 2)
         res = await db.execute(
             select(MealPrice).where(
                 MealPrice.hostel_id == admin.hostel_id,
@@ -62,6 +66,7 @@ async def update_prices(
                 effective_from=now_utc,
             )
             db.add(p_row)
+            changed_items.append(f"{meal_type.value}: initial ₹{new_price}")
         else:
             if p_row.price != new_price:
                 # Log to PriceHistory for audit trail
@@ -76,15 +81,26 @@ async def update_prices(
                 db.add(history_entry)
                 p_row.price = new_price
                 p_row.effective_from = now_utc
+                changed_items.append(f"{meal_type.value}: ₹{old_price} -> ₹{new_price}")
+
+    if changed_items:
+        audit = AuditLog(
+            user_id=admin.id,
+            action="UPDATE_MEAL_PRICES",
+            resource=f"hostel:{admin.hostel_id}:prices",
+            details=f"Admin {admin.email} updated meal prices: {', '.join(changed_items)}",
+        )
+        db.add(audit)
 
     await db.commit()
 
     return MealPricesOut(
-        breakfast=req.breakfast,
-        lunch=req.lunch,
-        dinner=req.dinner,
+        breakfast=round(float(req.breakfast), 2),
+        lunch=round(float(req.lunch), 2),
+        dinner=round(float(req.dinner), 2),
         effective_from=now_utc,
     )
+
 
 @router.get("/history", response_model=list[PriceHistoryOut])
 async def get_price_history(
