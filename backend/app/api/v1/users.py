@@ -46,15 +46,31 @@ async def update_user(
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     
-    if req.full_name is not None:
+    from app.models.audit import AuditLog
+    changes = []
+    if req.full_name is not None and req.full_name != user.full_name:
+        changes.append(f"name: {user.full_name} -> {req.full_name}")
         user.full_name = req.full_name
-    if req.room_number is not None:
+    if req.room_number is not None and req.room_number != user.room_number:
+        changes.append(f"room: {user.room_number} -> {req.room_number}")
         user.room_number = req.room_number
-    if req.phone_number is not None:
+    if req.phone_number is not None and req.phone_number != user.phone_number:
+        changes.append(f"phone: {user.phone_number} -> {req.phone_number}")
         user.phone_number = req.phone_number
-    if req.is_active is not None:
+    if req.is_active is not None and req.is_active != user.is_active:
+        changes.append(f"is_active: {user.is_active} -> {req.is_active}")
         user.is_active = req.is_active
+
+    if changes:
+        audit = AuditLog(
+            user_id=admin.id,
+            action="USER_UPDATE",
+            resource=f"user:{user.id}",
+            details=f"Admin {admin.email} updated student {user.email}: {', '.join(changes)}",
+        )
+        db.add(audit)
 
     await db.commit()
     await db.refresh(user)
     return user
+
