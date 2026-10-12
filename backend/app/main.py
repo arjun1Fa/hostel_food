@@ -25,22 +25,38 @@ async def lifespan(app: FastAPI):
 
     stop_scheduler()
 
+from app.core.security_headers import SecurityHeadersMiddleware
+from app.core.rate_limiter import RateLimitMiddleware
+from app.core.error_handler import setup_exception_handlers
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     lifespan=lifespan,
 )
 
-# CORS configuration for Flutter
+# Exception handlers for sanitized error disclosure
+setup_exception_handlers(app)
+
+# Security headers & payload size limit
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Rate limiting for auth and abuse prevention
+app.add_middleware(RateLimitMiddleware)
+
+# Strict CORS configuration supporting credentials (cookies) for Web and PWA
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["X-RateLimit-Limit", "X-RateLimit-Remaining", "Retry-After", "Content-Disposition"],
 )
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
 
 @app.get("/health")
 async def health_check():
