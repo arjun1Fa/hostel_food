@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/theme/app_animations.dart';
 import '../../../shared/widgets/card_container.dart';
 import '../../../shared/widgets/food_image.dart';
 import '../../../shared/widgets/meal_detail_modal.dart';
@@ -324,55 +325,67 @@ class StudentHomeScreen extends ConsumerWidget {
               const SizedBox(height: 14),
 
               if (menuState.isLoading)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(40.0),
-                    child: CircularProgressIndicator(color: AppColors.primaryDark),
-                  ),
+                const Column(
+                  children: [
+                    ShimmerLoading(height: 140, borderRadius: 20),
+                    SizedBox(height: 14),
+                    ShimmerLoading(height: 140, borderRadius: 20),
+                    SizedBox(height: 14),
+                    ShimmerLoading(height: 140, borderRadius: 20),
+                  ],
                 )
               else ...[
                 // Breakfast Card
-                _buildMealCard(
-                  context: context,
-                  mealSlot: 'Breakfast',
-                  timeSlot: '7:30 AM – 9:30 AM',
-                  badgeColor: AppColors.breakfast,
-                  badgeBg: AppColors.breakfastBg,
-                  menu: menuState.todayMeals?.breakfast,
-                  price: menuState.prices.breakfast,
-                  defaultTitle: 'South Indian Delight',
-                  defaultDesc: 'Idli, medu vada, vegetable sambar, coconut chutney, filter coffee',
-                  dietaryTag: 'High Protein • Vegetarian',
+                AnimatedEntrance(
+                  delay: const Duration(milliseconds: 60),
+                  child: _buildMealCard(
+                    context: context,
+                    mealSlot: 'Breakfast',
+                    timeSlot: '7:30 AM – 9:30 AM',
+                    badgeColor: AppColors.breakfast,
+                    badgeBg: AppColors.breakfastBg,
+                    menu: menuState.todayMeals?.breakfast,
+                    price: menuState.prices.breakfast,
+                    defaultTitle: 'South Indian Delight',
+                    defaultDesc: 'Idli, medu vada, vegetable sambar, coconut chutney, filter coffee',
+                    dietaryTag: 'High Protein • Vegetarian',
+                  ),
                 ),
                 const SizedBox(height: 14),
 
                 // Lunch Card
-                _buildMealCard(
-                  context: context,
-                  mealSlot: 'Lunch',
-                  timeSlot: '12:30 PM – 2:30 PM',
-                  badgeColor: AppColors.lunch,
-                  badgeBg: AppColors.lunchBg,
-                  menu: menuState.todayMeals?.lunch,
-                  price: menuState.prices.lunch,
-                  defaultTitle: 'Royal Thali Feast',
-                  defaultDesc: 'Paneer butter masala, dal tadka, aromatic jeera rice, soft roti, salad',
-                  dietaryTag: 'Wholesome • Vegetarian',
+                AnimatedEntrance(
+                  delay: const Duration(milliseconds: 140),
+                  child: _buildMealCard(
+                    context: context,
+                    mealSlot: 'Lunch',
+                    timeSlot: '12:30 PM – 2:30 PM',
+                    badgeColor: AppColors.lunch,
+                    badgeBg: AppColors.lunchBg,
+                    menu: menuState.todayMeals?.lunch,
+                    price: menuState.prices.lunch,
+                    defaultTitle: 'Royal Thali Feast',
+                    defaultDesc: 'Paneer butter masala, dal tadka, aromatic jeera rice, soft roti, salad',
+                    dietaryTag: 'Wholesome • Vegetarian',
+                  ),
                 ),
                 const SizedBox(height: 14),
 
                 // Dinner Card
-                _buildMealCard(
-                  context: context,
-                  mealSlot: 'Dinner',
-                  timeSlot: '7:30 PM – 9:30 PM',
-                  badgeColor: AppColors.dinner,
-                  badgeBg: AppColors.dinnerBg,
-                  menu: menuState.todayMeals?.dinner,
-                  price: menuState.prices.dinner,
-                  defaultTitle: 'Comfort Biryani Dinner',
-                  defaultDesc: 'Fragrant dum biryani, cucumber raita, crunchy papad, gulab jamun',
-                  dietaryTag: 'Comfort • Wholesome',
+                AnimatedEntrance(
+                  delay: const Duration(milliseconds: 220),
+                  child: _buildMealCard(
+                    context: context,
+                    mealSlot: 'Dinner',
+                    timeSlot: '7:30 PM – 9:30 PM',
+                    badgeColor: AppColors.dinner,
+                    badgeBg: AppColors.dinnerBg,
+                    menu: menuState.todayMeals?.dinner,
+                    price: menuState.prices.dinner,
+                    defaultTitle: 'Comfort Biryani Dinner',
+                    defaultDesc: 'Fragrant dum biryani, cucumber raita, crunchy papad, gulab jamun',
+                    dietaryTag: 'Comfort • Wholesome',
+                  ),
                 ),
               ],
 
