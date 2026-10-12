@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.core.database import Base, get_db
+from app.core.rate_limiter import limiter
 from app.main import app
 from app.bootstrap import bootstrap_app
 
@@ -37,6 +38,7 @@ async def test_session(test_engine):
 
 @pytest_asyncio.fixture(scope="function")
 async def client(test_session):
+    limiter.reset()
     async def override_get_db():
         yield test_session
 
@@ -45,3 +47,5 @@ async def client(test_session):
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
+    limiter.reset()
+
