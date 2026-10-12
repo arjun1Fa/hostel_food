@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import '../../../core/constants/api_constants.dart';
@@ -10,12 +11,14 @@ class AuthState {
   final bool isAuthenticated;
   final UserModel? user;
   final String? errorMessage;
+  final bool isOffline;
 
   const AuthState({
     this.isLoading = false,
     this.isAuthenticated = false,
     this.user,
     this.errorMessage,
+    this.isOffline = false,
   });
 
   AuthState copyWith({
@@ -23,12 +26,14 @@ class AuthState {
     bool? isAuthenticated,
     UserModel? user,
     String? errorMessage,
+    bool? isOffline,
   }) {
     return AuthState(
       isLoading: isLoading ?? this.isLoading,
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
       user: user ?? this.user,
       errorMessage: errorMessage,
+      isOffline: isOffline ?? this.isOffline,
     );
   }
 }
@@ -40,7 +45,27 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> checkAuthStatus() async {
     try {
-      final token = await TokenStorage.getAccessToken();
+      var token = await TokenStorage.getAccessToken();
+
+      // On Web/PWA, if in-memory access token is null (e.g. after refresh), attempt silent session restore via HttpOnly cookie
+      if (token == null && kIsWeb) {
+        try {
+          final refreshResp = await apiClient.dio.post(
+            ApiConstants.refresh,
+            data: {},
+          );
+          if (refreshResp.statusCode == 200) {
+            final newAccess = refreshResp.data['access_token'] as String;
+            final newCsrf = refreshResp.data['csrf_token'] as String?;
+            await TokenStorage.saveTokens(
+              accessToken: newAccess,
+              csrfToken: newCsrf,
+            );
+            token = newAccess;
+          }
+        } catch (_) {}
+      }
+
       if (token == null) {
         state = const AuthState(isAuthenticated: false, isLoading: false);
         return;
@@ -60,23 +85,32 @@ class AuthNotifier extends StateNotifier<AuthState> {
           isAuthenticated: true,
           user: user,
           isLoading: false,
+          isOffline: false,
         );
       } else {
         await TokenStorage.clear();
         state = const AuthState(isAuthenticated: false, isLoading: false);
       }
-    } catch (_) {
-      // Check cached data if offline
-      final cached = await TokenStorage.getUserData();
-      if (cached != null) {
-        state = AuthState(
-          isAuthenticated: true,
-          user: UserModel.fromJson(cached),
-          isLoading: false,
-        );
-      } else {
-        state = const AuthState(isAuthenticated: false, isLoading: false);
+    } on DioException catch (dioErr) {
+      if (dioErr.type == DioExceptionType.connectionError ||
+          dioErr.type == DioExceptionType.connectionTimeout) {
+        // Safe offline mode fallback: check cached user info
+        final cached = await TokenStorage.getUserData();
+        if (cached != null) {
+          state = AuthState(
+            isAuthenticated: true,
+            user: UserModel.fromJson(cached),
+            isLoading: false,
+            isOffline: true,
+          );
+          return;
+        }
       }
+      await TokenStorage.clear();
+      state = const AuthState(isAuthenticated: false, isLoading: false);
+    } catch (_) {
+      await TokenStorage.clear();
+      state = const AuthState(isAuthenticated: false, isLoading: false);
     }
   }
 
@@ -90,8 +124,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       if (response.statusCode == 200) {
         final access = response.data['access_token'] as String;
-        final refresh = response.data['refresh_token'] as String;
-        await TokenStorage.saveTokens(accessToken: access, refreshToken: refresh);
+        final refresh = response.data['refresh_token'] as String?;
+        final csrf = response.data['csrf_token'] as String?;
+        await TokenStorage.saveTokens(
+          accessToken: access,
+          refreshToken: refresh,
+          csrfToken: csrf,
+        );
 
         // Fetch user profile
         final meResponse = await apiClient.dio.get(
@@ -111,6 +150,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           isAuthenticated: true,
           user: user,
           isLoading: false,
+          isOffline: false,
         );
         return true;
       }
@@ -163,18 +203,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> logout() async {
     try {
       final refresh = await TokenStorage.getRefreshToken();
-      if (refresh != null) {
-        await apiClient.dio.post(
-          '/auth/logout',
-          data: {'refresh_token': refresh},
-        );
-      }
+      await apiClient.dio.post(
+        '/auth/logout',
+        data: refresh != null ? {'refresh_token': refresh} : {},
+      );
     } catch (_) {}
     await TokenStorage.clear();
-    state = const AuthState(isAuthenticated: false, user: null, isLoading: false);
+    state = const AuthState(isAuthenticated: false, user: null, isLoading: false, isOffline: false);
   }
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   return AuthNotifier();
 });
+
