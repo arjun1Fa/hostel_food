@@ -222,13 +222,30 @@ async def get_student_expenses(
     y = year or now_utc.year
 
     uid = current_user.id
-    if target_user_id and current_user.role == UserRole.ADMIN:
+    if target_user_id is not None and target_user_id != current_user.id:
+        if current_user.role != UserRole.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied: Students can only view their own expense records."
+            )
+        # Verify student belongs to admin's hostel
+        res = await db.execute(
+            select(User).where(User.id == target_user_id, User.hostel_id == current_user.hostel_id)
+        )
+        target_student = res.scalar_one_or_none()
+        if not target_student:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Student not found in your hostel."
+            )
         uid = target_user_id
+        student = target_student
+    else:
+        user_res = await db.execute(select(User).where(User.id == uid))
+        student = user_res.scalar_one_or_none()
+        if not student:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
 
-    user_res = await db.execute(select(User).where(User.id == uid))
-    student = user_res.scalar_one_or_none()
-    if not student:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
 
     # Fetch consumption records for the month
     c_query = (
