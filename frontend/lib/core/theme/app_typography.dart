@@ -43,6 +43,13 @@ class AppTypography {
     height: 1.4,
   );
 
+  static TextStyle get bodySmall => GoogleFonts.plusJakartaSans(
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textSecondary,
+    height: 1.4,
+  );
+
   static TextStyle get labelSmall => GoogleFonts.plusJakartaSans(
     fontSize: 11,
     fontWeight: FontWeight.w600,
