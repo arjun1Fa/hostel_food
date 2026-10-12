@@ -4,6 +4,7 @@ class Token(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+    csrf_token: str | None = None
 
 class TokenPayload(BaseModel):
     sub: str | None = None
@@ -16,4 +17,5 @@ class LoginRequest(BaseModel):
     password: str
 
 class RefreshTokenRequest(BaseModel):
-    refresh_token: str
+    refresh_token: str | None = None
+
